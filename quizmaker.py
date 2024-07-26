@@ -163,7 +163,7 @@ def main():
                     host='https://clovastudio.stream.ntruss.com',
                     api_key='NTA0MjU2MWZlZTcxNDJiY45r/DkTDk7oBmqKVrH2tgppYRF/3kCtv0bwtT7ihqUM',
                     api_key_primary_val='2vb3PzZVsMZcjwGY1yQG7xbuK0FqU7hrFGli34ou',
-                    request_id='76902a7a-2232-400c-843f-65a8edfc8e46'
+                    request_id='5dab9fa6-5425-4ae9-974f-9176bfe755d6'
                 )
 
                 with st.spinner('퀴즈 생성중..🧐'):
