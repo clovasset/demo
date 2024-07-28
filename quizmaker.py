@@ -105,7 +105,7 @@ def collect_news_data(keyword):
 
 
 def main():
-    st.title("주식 퀴즈 생성기")
+    st.title("주식 퀴즈 생성기?")
 
     col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
 
