@@ -23,7 +23,7 @@ class CompletionExecutor:
             'Accept': 'text/event-stream'
         }
 
-        with requests.post(self._host + '/testapp/v1/tasks/iqsmk52h/chat-completions',
+        with requests.post(self._host + '/testapp/v1/chat-completions/HCX-003',
                            headers=headers, json=completion_request, stream=True) as r:
             event_stream_data = []
             for line in r.iter_lines():
@@ -35,19 +35,20 @@ class CompletionExecutor:
 
 
 def parse_event_stream(stream):
-    last_message_content = None
+    complete_response = []
     for line in stream:
         if line.startswith("data:"):
             data = json.loads(line[len("data:"):])
-            if "message" in data and "content" in data["message"]:
-                last_message_content = data["message"]["content"]
-    return last_message_content
-
+            if "message" in data:
+                complete_response.append(data["message"]["content"])
+    return ''.join(complete_response)
 
 # 뉴스 검색 결과를 크롤링하는 함수
+
+
 def get_search_results(keyword):
     response = requests.get(
-        f"https://search.naver.com/search.naver?where=news&sm=tab_jum&query={keyword}&sort=0&pd=1d")
+        f"https://search.naver.com/search.naver?where=news&sm=tab_jum&query={keyword}&sort=1")
     html = response.text
     soup = BeautifulSoup(html, "html.parser")
     return soup.select("div.info_group")
@@ -82,14 +83,13 @@ def get_article_details(url):
 
 
 def collect_news_data(keyword):
+    keyword = keyword + " 주가"
     articles = get_search_results(keyword)
     titles = []
     contents = []
     links = []
 
-    for i, article in enumerate(articles):
-        if i >= 3:
-            break
+    for article in articles:
         links_in_article = article.select("a.info")
         if len(links_in_article) >= 2:
             url = links_in_article[1].attrs["href"]
@@ -101,49 +101,51 @@ def collect_news_data(keyword):
 
     return titles, contents, links
 
-#######################################################################################################
 # Streamlit 웹 애플리케이션
 
 
 def main():
     st.title("주식 퀴즈 생성기")
 
-    keyword = st.text_input("보유 종목:", value="", placeholder="보유 종목을 입력하세요",
-                            key='keyword_input', label_visibility="collapsed")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
 
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     with col1:
-        blank = []
+        date = st.text_input("투자일자:", value="2023-04-12")
+
     with col2:
-        age = st.number_input("투자자 나이:", min_value=0, max_value=120, value=25)
+        age = st.number_input("투자자 나이:", min_value=0, max_value=120, value=24)
+
     with col3:
-        year = st.number_input("투자경력(년):", min_value=0, max_value=100, value=1)
+        experience = st.number_input(
+            "투자경력(년):", min_value=0, max_value=100, value=1)
+
     with col4:
-        blank = []
+        keyword = st.text_input("보유 종목:", value="", placeholder="예: 삼성전자")
 
     if keyword:
-        with st.spinner('뉴스 읽는중..📰'):
+        with st.spinner('뉴스 데이터를 수집하는 중...'):
             titles, contents, links = collect_news_data(keyword)
             if contents:
-                articles_content = " ".join(contents)
-                st.success("수집된 뉴스 제목")
-                for i in titles:
-                    st.write(i)
+                articles_content = " .".join(contents)
+                st.success("뉴스 데이터를 성공적으로 수집했습니다.")
+                st.write("크롤링한 결과 첫 문장:", articles_content.split('.')[0])
 
                 preset_text = [
                     {
                         "role": "system",
                         "content": (
-                            "너는 사용자가 주는 최신 뉴스 기사의 내용을 취합해 사용자에게 주식 투자 교육 제공을 목적으로 퀴즈를 만들어줄거야."
-                            "\n퀴즈는 사용자가 주는 최신기사 내용에서 주식 가격에 영향을 줄 정보를 중심으로, 사용자의 보유종목에 관해서 내줘."
-                            "\n4지선다에 정답은 1개인 퀴즈이고, 딱 1개의 퀴즈만 만들면 돼."
-                            "\n아래에 너가 해야하는 답변의 형식을 지정해줄게. 여기 ~~~부분에 너의 답변을 넣어주면 돼."
-                            "\n\n[답변 형식]\n오늘의 질문 :~~~? \n1.~~~\n2.~~~\n3.~~~\n4.~~~\n\n정답 :~~~번 ~~~\n\n해설 :~~~"
+                            "-너는 내가 주는 뉴스 기사 정보를 취합해 사용자에게 주식 투자 교육 제공을 목적으로 퀴즈를 만들어줄거야.\n"
+                            "-4지선다 퀴즈이고, 딱 1개만 만들면 돼.\n"
+                            "-퀴즈는 내가 주는 최신기사 내용에서 주식 가격에 영향을 줄 정보를 중심으로 내줘.\n"
+                            "-사용자는 투자 시점, 자신의 나이, 투자경력, 보유종목을 너에게 알려줄거야. 그러면 사용자의 나이 수준이나 투자경력에 맞는 난이도의 퀴즈를 내면 돼."
+                            "\n\n이제 바로 아래에 너가 해야하는 답변의 형식을 지정해줄게. 여기 oooooo부분에 너의 답변을 넣어주면 돼."
+                            "\n오늘의 퀴즈 : oooooo? \n1. oooooo\n2. oooooo\n3. oooooo\n4. oooooo\n\n\n정답 : oooooo번 oooooo\n해설 : oooooo\n\n"
+                            "\n\n여기부터는 내가 주는 기사 정보야. \n\n{articles_content}"
                         )
                     },
                     {
                         "role": "user",
-                        "content": f"{articles_content}\n나이: {age}세\n투자경력: {year}년\n보유종목: {keyword}"
+                        "content": f"시점: {date}\n투자자 나이: {age}세\n투자경력: {experience}년\n보유종목: {keyword}"
                     }
                 ]
 
@@ -163,14 +165,14 @@ def main():
                     host='https://clovastudio.stream.ntruss.com',
                     api_key='NTA0MjU2MWZlZTcxNDJiY45r/DkTDk7oBmqKVrH2tgppYRF/3kCtv0bwtT7ihqUM',
                     api_key_primary_val='2vb3PzZVsMZcjwGY1yQG7xbuK0FqU7hrFGli34ou',
-                    request_id='5dab9fa6-5425-4ae9-974f-9176bfe755d6'
+                    request_id='76902a7a-2232-400c-843f-65a8edfc8e46'
                 )
 
-                with st.spinner('퀴즈 생성중..🧐'):
+                with st.spinner('퀴즈를 생성하는 중...'):
                     event_stream_data = completion_executor.execute(
                         request_data)
                     response = parse_event_stream(event_stream_data)
-                    st.success("퀴즈 생성완료✔")
+                    st.success("퀴즈를 성공적으로 생성했습니다.")
                     st.write(response)
 
 
